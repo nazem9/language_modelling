@@ -1,0 +1,6 @@
+.lightning_studio/
+*.pyc
+__pycache__/
+setting.json
+*.json
+*.iml
