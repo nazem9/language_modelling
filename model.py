@@ -6,9 +6,22 @@ import torch.nn.functional as F
 class Head(nn.Module):
     def __init__(self, n_embed, head_size, block_size):
         super().__init__()
-        self.key = nn.Linear(n_embed, head_size, bias=False)
-        self.query = nn.Linear(n_embed, head_size, bias=False)
-        self.value = nn.Linear(n_embed, head_size, bias=False)
+        self.key = self.query = nn.Sequential(
+            nn.Linear(n_embed, head_size, bias=False),
+            nn.GELU(),
+            nn.Linear(head_size, head_size, bias=False),
+        )
+
+        self.query = nn.Sequential(
+            nn.Linear(n_embed, head_size, bias=False),
+            nn.GELU(),
+            nn.Linear(head_size, head_size, bias=False),
+        )
+        self.value =self.query = nn.Sequential(
+            nn.Linear(n_embed, head_size, bias=False),
+            nn.GELU(),
+            nn.Linear(head_size, head_size, bias=False),
+        )
         # Used to mask future positions in the sequence
         self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
 
@@ -85,7 +98,7 @@ class LM(nn.Module):
         self.token_embedding = nn.Embedding(vocab_size, dim)
         self.position_embedding = nn.Embedding(block_size, dim)
         self.blocks = nn.Sequential(
-            *[Block(dim, n_head=n_head) for _ in range(layers)]
+            *[Block(dim, n_head) for _ in range(layers)]
         )
         self.lm_head = nn.Sequential(
             nn.Linear(dim, dim),

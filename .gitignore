@@ -4,3 +4,7 @@ __pycache__/
 setting.json
 *.json
 *.iml
+.netrc
+
+wandb/
+lightning_logs/

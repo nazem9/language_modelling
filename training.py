@@ -7,6 +7,9 @@ import glob
 import tiktoken
 from tqdm import tqdm
 import pytorch_lightning as pl
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+import wandb
+import datetime
 
 # Import the lightning module
 from lightning_module import LanguageModelLightning
@@ -80,19 +83,40 @@ def pad_collate_fn(batch, block_size=256):
 # Training
 ###############################################################################
 if __name__ == "__main__":
-    shard_dir = "/path/to/arwiki_books_shards/content/sharded"  # Adjust path
+    import kagglehub
+
+    # Download latest version
+    path = kagglehub.dataset_download("abedkhooli/arabic-bert-corpus")
+
+    print("Path to dataset files:", path)
+    # Generate a unique entity name using the current timestamp
+    wandb.init(project='language_modelling')
+
+    shard_dir = f"{path}/arwiki_books_shards/content/sharded"  # Adjust path
     dataset = ShardedTextDataset(shard_dir)
-    train_loader = DataLoader(dataset, batch_size=8, shuffle=True, collate_fn=pad_collate_fn)
+    train_loader = DataLoader(dataset, batch_size=16, shuffle=True, collate_fn=pad_collate_fn)
 
     # Initialize the Lightning module
     vocab_size = enc.n_vocab
     steps = 5000
     model_module = LanguageModelLightning(vocab_size=vocab_size, lr=1e-4, steps=steps)
+    
+    checkpoint_callback = ModelCheckpoint(
+        monitor="val_loss", 
+        dirpath="checkpoints/", 
+        filename="model-{epoch:02d}-{val_loss:.2f}", 
+        save_top_k=3, 
+        mode="min"
+    )
+    learning_rate_monitor = LearningRateMonitor(logging_interval = 'step',log_momentum=True, log_weight_decay=True)
 
     # Set up the trainer
     trainer = pl.Trainer(
         max_steps=steps,
-        gpus=1 if torch.cuda.is_available() else 0,
+        log_every_n_steps=1,
+        check_val_every_n_epoch=100,
+        callbacks=[checkpoint_callback,learning_rate_monitor],
+        accelerator='auto',
         gradient_clip_val=1.0
     )
 
